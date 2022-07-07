@@ -1,5 +1,5 @@
 const axios = require('axios').default;
-const {ethers} = require("ethers");
+const { ethers } = require("ethers");
 
 let ABI = ["function reportWeather(uint32, bytes32, uint32)", "function getWeather(uint32, bytes32) public view returns (uint32)"];
 let CONTRACT_ADDRESS = "0x49354813d8BFCa86f778DfF4120ad80E4D96D74E"
@@ -15,7 +15,13 @@ async function main() {
     console.log("The batchId is : ", batchId);
     console.log("write date start");
     for (var i = 0; i < citys.length; i++) {
-        let response = await axios.get('https://goweather.herokuapp.com/weather/' + citys[i]);
+        let response = await axios.get('https://goweather.herokuapp.com/weather/' + citys[i]).catch((error) => {
+            // console.log("error is :", error);
+            return error.response;
+        });
+        if (response.status != 200) {
+            continue;
+        }
         let temperature = parseInt((response.data.temperature || '').match(/\d+/g)[0]);
         if (temperature != null) {
             console.log("The %s temperature is %s", citys[i], temperature);
