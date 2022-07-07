@@ -22,7 +22,7 @@ async function main() {
     // build args
     const citys = ["shanghai", "hongkong", "london"];
     let batchId = 36698188;
-    let temperature = 45;
+    let temperature = 34;
     const calls = [
         {
             target: targetContractAddress,
@@ -39,7 +39,7 @@ async function main() {
     ];
 
     // call contract
-    const tx = await contract.aggregate(calls);
+    const tx = await contract.aggregate(calls, { gasLimit: 600000 });
     console.log("The Txn Hash is %s", tx.hash);
     await tx.wait();
 }
