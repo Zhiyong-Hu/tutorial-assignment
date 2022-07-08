@@ -16,7 +16,7 @@ contract GuessNumber {
         uint256 _reward,
         bytes memory _nonceHash,
         bytes memory _nonceNumHash
-    ) {
+    ) payable {
         host = msg.sender;
         reward = _reward;
         nonceHash = _nonceHash;
