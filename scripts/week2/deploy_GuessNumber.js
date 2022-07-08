@@ -17,12 +17,9 @@ async function main() {
   console.log("nonce is %s, number is %s, nonceNum is %s", nonce, number, nonceNum);
   console.log("nonceHash is %s, nonceNumHash is %s", nonceHash, nonceNumHash);
 
-  const contract = await GuessNumber.deploy(reward, ethers.utils.toUtf8Bytes(nonceHash), ethers.utils.toUtf8Bytes(nonceNumHash), { value: reward });
+  const contract = await GuessNumber.deploy(reward, nonceHash, nonceNumHash, { value: reward });
 
   console.log("GuessNumber contract address:", contract.address);
-
-  let result = await contract.info();
-  console.log("The result is %s", result);
   console.log("Account balance:", (await deployer.getBalance()).toString());
   console.log("Contract balance:", contract.deployTransaction.value.toString());
 }

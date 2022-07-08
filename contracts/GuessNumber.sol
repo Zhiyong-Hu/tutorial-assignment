@@ -7,32 +7,28 @@ import "hardhat/console.sol";
 
 // This is the main building block for smart contracts.
 contract GuessNumber {
-    address private host;
-    bytes private nonceHash;
-    bytes private nonceNumHash;
-    uint256 private reward;
+    address public host;
+    bytes32 public nonceHash;
+    bytes32 public nonceNumHash;
+    uint256 public reward;
+    mapping(address => uint32) gamers;
+    mapping(address => bool) guessed;
 
     constructor(
         uint256 _reward,
-        bytes memory _nonceHash,
-        bytes memory _nonceNumHash
+        bytes32 _nonceHash,
+        bytes32 _nonceNumHash
     ) payable {
+        require(_reward > 0, "guessed");
         host = msg.sender;
         reward = _reward;
         nonceHash = _nonceHash;
         nonceNumHash = _nonceNumHash;
     }
 
-    function info()
-        external
-        view
-        returns (
-            address,
-            bytes memory,
-            bytes memory,
-            uint256
-        )
-    {
-        return (host, nonceHash, nonceNumHash, reward);
+    function guess(uint32 _number) external payable {
+        require(guessed[msg.sender] == false, "guessed");
+        gamers[msg.sender] = _number;
+        guessed[msg.sender] = true;
     }
 }
