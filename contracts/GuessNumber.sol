@@ -11,15 +11,17 @@ contract GuessNumber {
     bytes32 public nonceHash;
     bytes32 public nonceNumHash;
     uint256 public reward;
-    mapping(address => uint32) gamers;
-    mapping(address => bool) guessed;
+    mapping(address => uint32) public gamers;
+    mapping(address => bool) public guessed;
 
     constructor(
         uint256 _reward,
         bytes32 _nonceHash,
         bytes32 _nonceNumHash
     ) payable {
-        require(_reward > 0, "guessed");
+        require(_reward > 0, "_reward must be greater than zero");
+        require(msg.value > 0, "msg.value must be greater than zero");
+        require(msg.value == _reward, "msg.value must be equal _reward");
         host = msg.sender;
         reward = _reward;
         nonceHash = _nonceHash;
@@ -27,7 +29,9 @@ contract GuessNumber {
     }
 
     function guess(uint32 _number) external payable {
-        require(guessed[msg.sender] == false, "guessed");
+        require(msg.sender != host, "host can't play the game");
+        require(msg.value == 1 ether, "msg.value must be equal 1 ether");
+        require(guessed[msg.sender] == false, "gamer already played");
         gamers[msg.sender] = _number;
         guessed[msg.sender] = true;
     }

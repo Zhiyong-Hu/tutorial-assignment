@@ -1,3 +1,5 @@
+const { ethers, waffle } = require("hardhat");
+
 async function main() {
   const [deployer] = await ethers.getSigners();
 
@@ -7,7 +9,7 @@ async function main() {
 
   const GuessNumber = await ethers.getContractFactory("GuessNumber");
 
-  const nonce = "HELLO";
+  const nonce = "huzhiyong";
   const nonceHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(nonce));
   const number = Math.floor(Math.random() * 1000);
   const nonceNum = nonce + number;
@@ -21,7 +23,9 @@ async function main() {
 
   console.log("GuessNumber contract address:", contract.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
-  console.log("Contract balance:", contract.deployTransaction.value.toString());
+  const provider = waffle.provider;
+  const balance = await provider.getBalance(contract.address);
+  console.log("Contract balance:", balance.toString());
 }
 
 main()
