@@ -62,16 +62,25 @@ describe("GuessNumber contract", function () {
       console.log("number is %s", number);
       await expect(contract.connect(addr1).reveal(ethers.utils.formatBytes32String(nonce), number))
         .to.be.revertedWith("Only the host can operation");
-      const guessNumber1 = Math.floor(Math.random() * 1000);
-      console.log("guessNumber1 is %s", guessNumber1);
-      const guessNumber2 = Math.floor(Math.random() * 1000);
-      console.log("guessNumber2 is %s", guessNumber2);
+      const guessNumber1 = number - 1;
+      const guessNumber2 = number - 3;
       let tx1 = await contract.connect(addr1).guess(guessNumber1, { value: deposit });
       await tx1.wait();
+      let = addr1_balance = await addr1.getBalance()
+      console.log("addr1_balance is %s", addr1_balance);
       let tx2 = await contract.connect(addr2).guess(guessNumber2, { value: deposit });
       await tx2.wait();
+      let addr2_balance = await addr2.getBalance()
+      console.log("addr2_balance is %s", addr2_balance);
+      console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
       let tx = await contract.reveal(ethers.utils.formatBytes32String(nonce), number);
       await tx.wait();
+      console.log("addr1_balance is %s", await addr1.getBalance());
+      console.log("addr2_balance is %s", await addr2.getBalance());
+      console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
+      expect(await waffle.provider.getBalance(contract.address)).to.equal(0);
+      expect(await addr1.getBalance()).to.equal(addr1_balance.add(3000000000000000000));
+      expect(await addr2.getBalance()).to.equal(addr2_balance);
     });
   });
 });
