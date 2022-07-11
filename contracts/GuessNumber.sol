@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 
-pragma solidity >=0.8.0;
+pragma solidity >=0.7.0;
 import "hardhat/console.sol";
 
 // 安全的数学计算库
@@ -23,7 +23,7 @@ abstract contract Host {
         host = msg.sender;
     }
 
-    modifier onlyHost() virtual {
+    modifier onlyHost() {
         require(msg.sender == host, "Only the host can operation");
         _;
     }
@@ -35,7 +35,12 @@ interface GuessNumberInterface {
     function reveal(bytes32 nonce, uint16 number) external;
 }
 
-contract GuessNumber is GuessNumberInterface, Host {
+contract GuessNumber is Host, GuessNumberInterface {
+    enum State {
+        Created,
+        Concluded
+    }
+    State public state;
     uint256 public deposit;
     bytes32 public nonceHash;
     bytes32 public nonceNumHash;
@@ -43,19 +48,22 @@ contract GuessNumber is GuessNumberInterface, Host {
     mapping(address => bool) public isGuess;
     mapping(uint16 => bool) public guessNumbers;
     address[] public playerAddress;
+    address[] public winerPlayers;
 
     constructor(bytes32 _nonceHash, bytes32 _nonceNumHash) payable {
         require(msg.value > 0, "host deposit must be greater than 0");
         deposit = msg.value;
         nonceHash = _nonceHash;
         nonceNumHash = _nonceNumHash;
+        state = State.Created;
     }
 
     function guess(uint16 number) external payable override {
         require(msg.value == deposit, "msg.value must be equal deposit");
         require(isGuess[msg.sender] == false, "gamer already played");
         require(guessNumbers[number] == false, "the number have guessed");
-        require(playerAddress.length < 2, "over the limit");
+        require(number >= 0 && number < 1000, "invalid number");
+        require(state == State.Created, "already concluded");
         palyers[msg.sender] = number;
         isGuess[msg.sender] = true;
         guessNumbers[number] = true;
@@ -63,30 +71,37 @@ contract GuessNumber is GuessNumberInterface, Host {
     }
 
     function reveal(bytes32 nonce, uint16 number) external override onlyHost {
+        require(state == State.Created, "already concluded");
+        require(playerAddress.length >= 2, "At least 2 players");
         require(keccak256(abi.encode(nonce)) == nonceHash, "nonce illegal");
         require(
             keccak256(abi.encode(nonce, number)) == nonceNumHash,
             "number illegal"
         );
-        require(playerAddress.length == 2, "less than 2 people");
-        uint16 diff = number;
         uint256 playerLength = playerAddress.length;
-        for (uint256 i = 0; i < playerLength; i++) {
-            uint16 diff_temp = SafeMath.sub(palyers[playerAddress[i]], number);
-            if (diff_temp < diff) {
-                diff = diff_temp;
-                delete winerPlayers;
-                winerPlayers.push(playerAddress[i]);
-            } else if (diff_temp == diff) {
-                winerPlayers.push(playerAddress[i]);
+        if (number >= 0 && number < 1000) {
+            uint16 diff = number;
+            for (uint256 i = 0; i < playerLength; i++) {
+                uint16 diff_temp = SafeMath.sub(
+                    palyers[playerAddress[i]],
+                    number
+                );
+                if (diff_temp < diff) {
+                    diff = diff_temp;
+                    delete winerPlayers;
+                    winerPlayers.push(playerAddress[i]);
+                } else if (diff_temp == diff) {
+                    winerPlayers.push(playerAddress[i]);
+                }
             }
+        } else {
+            winerPlayers = playerAddress;
         }
         uint256 total = (playerLength + 1) * deposit;
-        console.log("total is %s", total);
         uint256 winerLength = winerPlayers.length;
-        console.log("winerLength is %s", winerLength);
         for (uint256 i = 0; i < winerLength; i++) {
             payable(winerPlayers[i]).transfer(total / winerLength);
         }
+        state = State.Concluded;
     }
 }

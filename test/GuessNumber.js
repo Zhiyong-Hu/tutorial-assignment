@@ -66,7 +66,7 @@ describe("GuessNumber contract", function () {
       const guessNumber2 = number - 3;
       let tx1 = await contract.connect(addr1).guess(guessNumber1, { value: deposit });
       await tx1.wait();
-      let = addr1_balance = await addr1.getBalance()
+      let addr1_balance = await addr1.getBalance()
       console.log("addr1_balance is %s", addr1_balance);
       let tx2 = await contract.connect(addr2).guess(guessNumber2, { value: deposit });
       await tx2.wait();
@@ -79,7 +79,7 @@ describe("GuessNumber contract", function () {
       console.log("addr2_balance is %s", await addr2.getBalance());
       console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
       expect(await waffle.provider.getBalance(contract.address)).to.equal(0);
-      expect(await addr1.getBalance()).to.equal(addr1_balance.add(3000000000000000000));
+      expect(await addr1.getBalance()).to.equal(ethers.BigNumber.from(addr1_balance).add("3000000000000000000"));
       expect(await addr2.getBalance()).to.equal(addr2_balance);
     });
   });
