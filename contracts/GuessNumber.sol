@@ -50,6 +50,9 @@ contract GuessNumber is Host, GuessNumberInterface {
     address[] public playerAddress;
     address[] public winerPlayers;
 
+    event guessed(address palyer, uint16 number);
+    event transfered(address winer, uint256 reward);
+
     constructor(bytes32 _nonceHash, bytes32 _nonceNumHash) payable {
         require(msg.value > 0, "host deposit must be greater than 0");
         deposit = msg.value;
@@ -68,6 +71,7 @@ contract GuessNumber is Host, GuessNumberInterface {
         isGuess[msg.sender] = true;
         guessNumbers[number] = true;
         playerAddress.push(msg.sender);
+        emit guessed(msg.sender, number);
     }
 
     function reveal(bytes32 nonce, uint16 number) external override onlyHost {
@@ -99,8 +103,10 @@ contract GuessNumber is Host, GuessNumberInterface {
         }
         uint256 total = (playerLength + 1) * deposit;
         uint256 winerLength = winerPlayers.length;
+        uint256 reward = total / winerLength;
         for (uint256 i = 0; i < winerLength; i++) {
-            payable(winerPlayers[i]).transfer(total / winerLength);
+            payable(winerPlayers[i]).transfer(reward);
+            emit transfered(winerPlayers[i], reward);
         }
         state = State.Concluded;
     }
