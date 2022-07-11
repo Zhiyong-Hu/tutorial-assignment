@@ -11,7 +11,7 @@ abstract contract Host {
     }
 
     modifier onlyHost() {
-        require(msg.sender == host);
+        require(msg.sender == host, "Only the host can operation");
         _;
     }
 }
@@ -42,6 +42,7 @@ contract GuessNumber is GuessNumberInterface, Host {
         require(msg.value == deposit, "msg.value must be equal deposit");
         require(isGuess[msg.sender] == false, "gamer already played");
         require(guessNumbers[number] == false, "the number have guessed");
+        require(playerAddress.length < 2, "over the limit");
         palyers[msg.sender] = number;
         isGuess[msg.sender] = true;
         guessNumbers[number] = true;
@@ -49,13 +50,12 @@ contract GuessNumber is GuessNumberInterface, Host {
     }
 
     function reveal(bytes32 nonce, uint16 number) external override onlyHost {
+        require(keccak256(abi.encode(nonce)) == nonceHash, "nonce illegal");
         require(
-            keccak256(abi.encodePacked(nonce)) == nonceHash,
-            "nonce illegal"
-        );
-        require(
-            keccak256(abi.encodePacked(nonce, number)) == nonceNumHash,
+            keccak256(abi.encode(nonce, number)) == nonceNumHash,
             "number illegal"
         );
+        require(playerAddress.length == 2, "Less than 2 people");
+        //TODO
     }
 }

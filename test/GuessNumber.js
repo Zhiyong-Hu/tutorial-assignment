@@ -4,13 +4,11 @@ const { expect } = require("chai");
 describe("GuessNumber contract", function () {
 
   const nonce = "huzhiyong";
-  const nonceHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(nonce));
+  const nonceHash = ethers.utils.keccak256(ethers.utils.formatBytes32String(nonce));
   const number = Math.floor(Math.random() * 1000);
-  const nonceNum = nonce + number;
-  const nonceNumHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(nonceNum));
+  const nonceNumHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["bytes32", "uint"], [ethers.utils.formatBytes32String(nonce), number]));
   const deposit = ethers.utils.parseEther("1");
   const other_deposit = ethers.utils.parseEther("0.5");
-  console.log("nonceHash is %s, nonceNumHash is %s", nonceHash, nonceNumHash);
   let GuessNumber;
   let contract;
   let owner;
@@ -59,4 +57,21 @@ describe("GuessNumber contract", function () {
     });
   });
 
+  describe("Reveal", function () {
+    it("Should set the right status", async function () {
+      console.log("number is %s", number);
+      await expect(contract.connect(addr1).reveal(ethers.utils.formatBytes32String(nonce), number))
+        .to.be.revertedWith("Only the host can operation");
+      const guessNumber1 = Math.floor(Math.random() * 1000);
+      console.log("guessNumber1 is %s", guessNumber1);
+      const guessNumber2 = Math.floor(Math.random() * 1000);
+      console.log("guessNumber2 is %s", guessNumber2);
+      let tx1 = await contract.connect(addr1).guess(guessNumber1, { value: deposit });
+      await tx1.wait();
+      let tx2 = await contract.connect(addr2).guess(guessNumber2, { value: deposit });
+      await tx2.wait();
+      let tx = await contract.reveal(ethers.utils.formatBytes32String(nonce), number);
+      await tx.wait();
+    });
+  });
 });
