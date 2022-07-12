@@ -12,7 +12,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 const PRIVATE_KEY = "78e562f34fabb4fa55c48f7f184bcd2c585d4eaacb53adb1e77c7df0d1e407e6";
 // const PRIVATE_KEY = "Your private key";
 module.exports = {
-  solidity: "0.7.3",
+  solidity: "0.8.0",
   networks: {
     hardhat: {
       chainId: 31337

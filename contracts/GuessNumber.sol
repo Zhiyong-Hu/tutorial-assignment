@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 
-pragma solidity >=0.7.0;
+pragma solidity ^0.8.0;
 import "hardhat/console.sol";
 
 // 安全的数学计算库
