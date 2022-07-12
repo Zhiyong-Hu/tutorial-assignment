@@ -75,4 +75,123 @@ describe("GuessNumber contract", function () {
       expect(await addr2.getBalance()).to.equal(addr2_balance);
     });
   });
+
+});
+
+describe("Test Case", function () {
+  it("case 1", async function () {
+    const nonce = "HELLO";
+    const nonceHash = ethers.utils.keccak256(ethers.utils.formatBytes32String(nonce));
+    const number = 999;
+    const nonceNumHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["bytes32", "uint"], [ethers.utils.formatBytes32String(nonce), number]));
+    const deposit = ethers.utils.parseEther("1");
+    let GuessNumber = await ethers.getContractFactory("GuessNumber");
+    [owner, addr1, addr2] = await ethers.getSigners();
+    let contract = await GuessNumber.deploy(nonceHash, nonceNumHash, { value: deposit });
+
+    let transferedEvent = new Promise((resolve, reject) => {
+      contract.on('transfered', (winer, reward, event) => {
+        event.removeListener();
+
+        resolve({
+          winer: winer,
+          reward: reward
+        });
+      });
+
+      setTimeout(() => {
+        reject(new Error('timeout'));
+      }, 60000)
+    });
+
+    let tx1 = await contract.connect(addr1).guess(800, { value: deposit });
+    await tx1.wait();
+
+    let tx2 = await contract.connect(addr2).guess(900, { value: deposit });
+    await tx2.wait();
+
+    let tx = await contract.reveal(ethers.utils.formatBytes32String(nonce), number);
+    await tx.wait();
+
+    let event = await transferedEvent;
+
+    expect(event.winer).to.equal(addr2.address);
+    expect(event.reward).to.equal(ethers.utils.parseEther("3"));
+  });
+
+  it("case 2", async function () {
+    const nonce = "HELLO";
+    const nonceHash = ethers.utils.keccak256(ethers.utils.formatBytes32String(nonce));
+    const number = 999;
+    const nonceNumHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["bytes32", "uint"], [ethers.utils.formatBytes32String(nonce), number]));
+    const deposit = ethers.utils.parseEther("1");
+    let GuessNumber = await ethers.getContractFactory("GuessNumber");
+    [owner, addr1, addr2] = await ethers.getSigners();
+    let contract = await GuessNumber.deploy(nonceHash, nonceNumHash, { value: deposit });
+
+    await expect(contract.connect(addr1).guess(800, { value: ethers.utils.parseEther("2") }))
+      .to.be.revertedWith("msg.value must be equal deposit");
+
+    let tx2 = await contract.connect(addr2).guess(900, { value: deposit });
+    await tx2.wait();
+  });
+
+  it("case 3", async function () {
+    const nonce = "HELLO";
+    const nonceHash = ethers.utils.keccak256(ethers.utils.formatBytes32String(nonce));
+    const number = 500;
+    const nonceNumHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["bytes32", "uint"], [ethers.utils.formatBytes32String(nonce), number]));
+    const deposit = ethers.utils.parseEther("1");
+    let GuessNumber = await ethers.getContractFactory("GuessNumber");
+    [owner, addr1, addr2] = await ethers.getSigners();
+    let contract = await GuessNumber.deploy(nonceHash, nonceNumHash, { value: deposit });
+
+    let filter = contract.filters.transfered(addr1.address)
+    let transferedEvent = new Promise((resolve, reject) => {
+      contract.on(filter, (winer, reward, event) => {
+        event.removeListener();
+
+        resolve({
+          winer: winer,
+          reward: reward
+        });
+      });
+
+      setTimeout(() => {
+        reject(new Error('timeout'));
+      }, 60000)
+    });
+    let filter2 = contract.filters.transfered(addr2.address)
+    let transferedEvent2 = new Promise((resolve, reject) => {
+      contract.on(filter2, (winer, reward, event) => {
+        event.removeListener();
+
+        resolve({
+          winer: winer,
+          reward: reward
+        });
+      });
+
+      setTimeout(() => {
+        reject(new Error('timeout'));
+      }, 60000)
+    });
+
+    let tx1 = await contract.connect(addr1).guess(450, { value: deposit });
+    await tx1.wait();
+
+    let tx2 = await contract.connect(addr2).guess(550, { value: deposit });
+    await tx2.wait();
+
+    let tx = await contract.reveal(ethers.utils.formatBytes32String(nonce), number);
+    await tx.wait();
+
+    let event = await transferedEvent;
+    let event2 = await transferedEvent2;
+
+    expect(event.winer).to.equal(addr1.address);
+    expect(event.reward).to.equal(ethers.utils.parseEther("1.5"));
+    expect(event2.winer).to.equal(addr2.address);
+    expect(event2.reward).to.equal(ethers.utils.parseEther("1.5"));
+  });
 });
