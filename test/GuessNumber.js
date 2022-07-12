@@ -79,7 +79,7 @@ describe("GuessNumber contract", function () {
       console.log("addr2_balance is %s", await addr2.getBalance());
       console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
       expect(await waffle.provider.getBalance(contract.address)).to.equal(0);
-      expect(await addr1.getBalance()).to.equal(ethers.BigNumber.from(addr1_balance).add("3000000000000000000"));
+      expect(await addr1.getBalance()).to.equal(ethers.BigNumber.from(addr1_balance).add(ethers.utils.parseEther("3")));
       expect(await addr2.getBalance()).to.equal(addr2_balance);
     });
   });
