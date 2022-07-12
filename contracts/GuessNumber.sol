@@ -36,37 +36,48 @@ interface GuessNumberInterface {
 }
 
 contract GuessNumber is Host, GuessNumberInterface {
-    enum State {
+    enum States {
         Created,
         Concluded
     }
-    State public state;
+    States public state;
     uint256 public deposit;
     bytes32 public nonceHash;
     bytes32 public nonceNumHash;
     mapping(address => uint16) public palyers;
     mapping(address => bool) public isGuess;
     mapping(uint16 => bool) public guessNumbers;
+    mapping(address => uint256) public pendingWithdrawals;
     address[] public playerAddress;
     address[] public winerPlayers;
 
     event guessed(address palyer, uint16 number);
     event transfered(address indexed winer, uint256 reward);
+    event withdrawed(address indexed sender, uint256 amout);
 
     constructor(bytes32 _nonceHash, bytes32 _nonceNumHash) payable {
         require(msg.value > 0, "host deposit must be greater than 0");
         deposit = msg.value;
         nonceHash = _nonceHash;
         nonceNumHash = _nonceNumHash;
-        state = State.Created;
+        state = States.Created;
     }
 
-    function guess(uint16 number) external payable override {
+    modifier atState(States _state) {
+        require(state == _state, "Function cannot be called at this time.");
+        _;
+    }
+
+    function guess(uint16 number)
+        external
+        payable
+        override
+        atState(States.Created)
+    {
         require(msg.value == deposit, "msg.value must be equal deposit");
         require(isGuess[msg.sender] == false, "gamer already played");
         require(guessNumbers[number] == false, "the number have guessed");
         require(number >= 0 && number < 1000, "invalid number");
-        require(state == State.Created, "already concluded");
         palyers[msg.sender] = number;
         isGuess[msg.sender] = true;
         guessNumbers[number] = true;
@@ -74,8 +85,24 @@ contract GuessNumber is Host, GuessNumberInterface {
         emit guessed(msg.sender, number);
     }
 
-    function reveal(bytes32 nonce, uint16 number) external override onlyHost {
-        require(state == State.Created, "already concluded");
+    function nextState() internal {
+        state = States(uint256(state) + 1);
+    }
+
+    // 这个修饰器在函数执行结束之后
+    // 使合约进入下一个阶段。
+    modifier transitionNext() {
+        _;
+        nextState();
+    }
+
+    function reveal(bytes32 nonce, uint16 number)
+        external
+        override
+        onlyHost
+        atState(States.Created)
+        transitionNext
+    {
         require(playerAddress.length >= 2, "At least 2 players");
         require(keccak256(abi.encode(nonce)) == nonceHash, "nonce illegal");
         require(
@@ -105,10 +132,20 @@ contract GuessNumber is Host, GuessNumberInterface {
         uint256 winerLength = winerPlayers.length;
         uint256 reward = total / winerLength;
         for (uint256 i = 0; i < winerLength; i++) {
-            payable(winerPlayers[i]).transfer(reward);
+            // payable(winerPlayers[i]).transfer(reward);
             // console.log("%s -- %s", winerPlayers[i], reward);
+            pendingWithdrawals[winerPlayers[i]] = reward;
             emit transfered(winerPlayers[i], reward);
         }
-        state = State.Concluded;
+    }
+
+    function withdraw() public atState(States.Concluded) {
+        require(pendingWithdrawals[msg.sender] > 0, "not reward");
+        uint256 amount = pendingWithdrawals[msg.sender];
+        // 记住，在发送资金之前将待发金额清零
+        // 来防止重入（re-entrancy）攻击
+        pendingWithdrawals[msg.sender] = 0;
+        payable(msg.sender).transfer(amount);
+        emit withdrawed(msg.sender, amount);
     }
 }
