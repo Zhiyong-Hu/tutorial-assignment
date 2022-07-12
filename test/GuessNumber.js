@@ -42,7 +42,6 @@ describe("GuessNumber contract", function () {
   describe("Guess", function () {
     it("Should set the right status", async function () {
       const guessNumber = Math.floor(Math.random() * 1000);
-      console.log("guessNumber is %s", guessNumber);
       await expect(contract.connect(addr1).guess(guessNumber, { value: other_deposit }))
         .to.be.revertedWith("msg.value must be equal deposit");
       let tx = await contract.connect(addr1).guess(guessNumber, { value: deposit });
@@ -59,7 +58,6 @@ describe("GuessNumber contract", function () {
 
   describe("Reveal", function () {
     it("Should set the right status", async function () {
-      console.log("number is %s", number);
       await expect(contract.connect(addr1).reveal(ethers.utils.formatBytes32String(nonce), number))
         .to.be.revertedWith("Only the host can operation");
       const guessNumber1 = number - 1;
@@ -67,17 +65,11 @@ describe("GuessNumber contract", function () {
       let tx1 = await contract.connect(addr1).guess(guessNumber1, { value: deposit });
       await tx1.wait();
       let addr1_balance = await addr1.getBalance()
-      console.log("addr1_balance is %s", addr1_balance);
       let tx2 = await contract.connect(addr2).guess(guessNumber2, { value: deposit });
       await tx2.wait();
       let addr2_balance = await addr2.getBalance()
-      console.log("addr2_balance is %s", addr2_balance);
-      console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
       let tx = await contract.reveal(ethers.utils.formatBytes32String(nonce), number);
       await tx.wait();
-      console.log("addr1_balance is %s", await addr1.getBalance());
-      console.log("addr2_balance is %s", await addr2.getBalance());
-      console.log("contract_balance is %s", await waffle.provider.getBalance(contract.address));
       expect(await waffle.provider.getBalance(contract.address)).to.equal(0);
       expect(await addr1.getBalance()).to.equal(ethers.BigNumber.from(addr1_balance).add(ethers.utils.parseEther("3")));
       expect(await addr2.getBalance()).to.equal(addr2_balance);
