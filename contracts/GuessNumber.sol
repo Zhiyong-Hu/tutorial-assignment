@@ -106,7 +106,7 @@ contract GuessNumber is Host, GuessNumberInterface {
         uint256 reward = total / winerLength;
         for (uint256 i = 0; i < winerLength; i++) {
             payable(winerPlayers[i]).transfer(reward);
-            console.log("%s -- %s", winerPlayers[i], reward);
+            // console.log("%s -- %s", winerPlayers[i], reward);
             emit transfered(winerPlayers[i], reward);
         }
         state = State.Concluded;
