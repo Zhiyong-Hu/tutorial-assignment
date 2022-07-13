@@ -3,3 +3,5 @@
 /.idea/
 /artifacts/
 /cache/
+/bin/
+/.vscode/
