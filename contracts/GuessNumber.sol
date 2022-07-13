@@ -64,7 +64,7 @@ contract GuessNumber is Host, GuessNumberInterface {
     }
 
     modifier atState(States _state) {
-        require(state == _state, "Function cannot be called at this time.");
+        require(state == _state, "Function cannot be called at this state");
         _;
     }
 
