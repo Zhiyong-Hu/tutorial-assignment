@@ -6,7 +6,7 @@ import "hardhat/console.sol";
 // 安全的数学计算库
 library SafeMath {
     // 减法计算
-    function sub(uint16 a, uint16 b) internal pure returns (uint16) {
+    function subAbs(uint16 a, uint16 b) internal pure returns (uint16) {
         // 因为是无符号整数的计算，所以需要满足被减数>=减数
         if (a >= b) {
             return a - b;
@@ -113,7 +113,7 @@ contract GuessNumber is Host, GuessNumberInterface {
         if (number >= 0 && number < 1000) {
             uint16 diff = number;
             for (uint256 i = 0; i < playerLength; i++) {
-                uint16 diff_temp = SafeMath.sub(
+                uint16 diff_temp = SafeMath.subAbs(
                     palyers[playerAddress[i]],
                     number
                 );
