@@ -111,7 +111,7 @@ contract GuessNumber is Host, GuessNumberInterface {
         );
         uint256 playerLength = playerAddress.length;
         if (number >= 0 && number < 1000) {
-            uint16 diff = number;
+            uint16 diff = 1000;
             for (uint256 i = 0; i < playerLength; i++) {
                 uint16 diff_temp = SafeMath.subAbs(
                     palyers[playerAddress[i]],
