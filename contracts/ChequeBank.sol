@@ -4,9 +4,15 @@ import "hardhat/console.sol";
 
 contract ChequeBank {
     address owner;
+    mapping(bytes32 => bool) redeemeds;
 
     constructor() {
         owner = msg.sender;
+    }
+
+    modifier _onlyOwner() {
+        require(msg.sender == owner);
+        _;
     }
 
     struct ChequeInfo {
@@ -35,13 +41,44 @@ contract ChequeBank {
 
     function deposit() external payable {}
 
-    function withdraw(uint256 amount) external {}
+    function withdraw(uint256 amount) external _onlyOwner {}
 
-    function withdrawTo(uint256 amount, address payable recipient) external {}
+    function withdrawTo(uint256 amount, address payable recipient)
+        external
+        _onlyOwner
+    {
+        recipient.transfer(amount);
+    }
 
-    function redeem(Cheque memory chequeData) external {}
+    function redeem(Cheque memory chequeData) external {
+        require(chequeData.chequeInfo.payer == owner);
+        require(!redeemeds[chequeData.chequeInfo.chequeId]);
+        require(chequeData.chequeInfo.amount <= address(this).balance);
+        redeemeds[chequeData.chequeInfo.chequeId] = true;
 
-    function revoke(bytes32 chequeId) external {}
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                chequeData.chequeInfo.chequeId,
+                chequeData.chequeInfo.payer,
+                chequeData.chequeInfo.payee,
+                chequeData.chequeInfo.amount,
+                this,
+                chequeData.chequeInfo.validFrom,
+                chequeData.chequeInfo.validThru
+            )
+        );
+        bytes32 message = ECDSA.toEthSignedMessageHash(hash);
+
+        require(ECDSA.recover(message, chequeData.sig) == owner);
+
+        payable(chequeData.chequeInfo.payee).transfer(
+            chequeData.chequeInfo.amount
+        );
+    }
+
+    function revoke(bytes32 chequeId) external _onlyOwner {
+        redeemeds[chequeId] = true;
+    }
 
     function notifySignOver(SignOver memory signOverData) external {}
 
@@ -57,6 +94,8 @@ contract ChequeBank {
     ) public view returns (bool) {
         require(chequeData.chequeInfo.payer == owner);
         require(chequeData.chequeInfo.payee == payee);
+        require(!redeemeds[chequeData.chequeInfo.chequeId]);
+        require(chequeData.chequeInfo.amount <= address(this).balance);
         bytes32 hash = keccak256(
             abi.encodePacked(
                 chequeData.chequeInfo.chequeId,
