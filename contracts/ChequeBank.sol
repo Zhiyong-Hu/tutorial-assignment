@@ -97,7 +97,7 @@ contract ChequeBank {
         require(chequeData.chequeInfo.payer == owner);
         require(chequeData.chequeInfo.payee == payee);
         require(!redeemeds[chequeData.chequeInfo.chequeId]);
-        require(chequeData.chequeInfo.amount <= address(this).balance);
+        // require(chequeData.chequeInfo.amount <= address(this).balance);
         bytes32 hash = keccak256(
             abi.encodePacked(
                 chequeData.chequeInfo.chequeId,
