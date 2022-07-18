@@ -3,11 +3,11 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "hardhat/console.sol";
 
 contract ChequeBank {
-    address owner;
+    address payable owner;
     mapping(bytes32 => bool) redeemeds;
 
     constructor() {
-        owner = msg.sender;
+        owner = payable(msg.sender);
     }
 
     modifier _onlyOwner() {
@@ -41,7 +41,9 @@ contract ChequeBank {
 
     function deposit() external payable {}
 
-    function withdraw(uint256 amount) external _onlyOwner {}
+    function withdraw(uint256 amount) external _onlyOwner {
+        owner.transfer(amount);
+    }
 
     function withdrawTo(uint256 amount, address payable recipient)
         external
