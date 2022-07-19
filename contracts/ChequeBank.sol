@@ -3,17 +3,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "hardhat/console.sol";
 
 contract ChequeBank {
-    address payable owner;
-    mapping(bytes32 => bool) redeemeds;
-
-    constructor() {
-        owner = payable(msg.sender);
-    }
-
-    modifier _onlyOwner() {
-        require(msg.sender == owner);
-        _;
-    }
+    mapping(address => uint256) balances;
+    mapping(address => mapping(bytes32 => bool)) redeemeds;
 
     struct ChequeInfo {
         uint256 amount;
@@ -39,24 +30,38 @@ contract ChequeBank {
         bytes sig;
     }
 
-    function deposit() external payable {}
-
-    function withdraw(uint256 amount) external _onlyOwner {
-        owner.transfer(amount);
+    function balanceOf() external view returns (uint256) {
+        return balances[msg.sender];
     }
 
-    function withdrawTo(uint256 amount, address payable recipient)
-        external
-        _onlyOwner
-    {
+    function deposit() external payable {
+        balances[msg.sender] += msg.value;
+    }
+
+    function withdraw(uint256 amount) external {
+        require(balances[msg.sender] >= amount, "Not enough balances");
+        balances[msg.sender] -= amount;
+        payable(msg.sender).transfer(amount);
+    }
+
+    function withdrawTo(uint256 amount, address payable recipient) external {
+        require(balances[msg.sender] >= amount, "Not enough balances");
+        balances[msg.sender] -= amount;
         recipient.transfer(amount);
     }
 
     function redeem(Cheque memory chequeData) external {
-        require(chequeData.chequeInfo.payer == owner);
-        require(!redeemeds[chequeData.chequeInfo.chequeId]);
-        require(chequeData.chequeInfo.amount <= address(this).balance);
-        redeemeds[chequeData.chequeInfo.chequeId] = true;
+        require(
+            !redeemeds[chequeData.chequeInfo.payer][
+                chequeData.chequeInfo.chequeId
+            ],
+            "The cheque had redeemed"
+        );
+        require(
+            balances[chequeData.chequeInfo.payer] >=
+                chequeData.chequeInfo.amount,
+            "Not enough balances"
+        );
 
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -71,15 +76,24 @@ contract ChequeBank {
         );
         bytes32 message = ECDSA.toEthSignedMessageHash(hash);
 
-        require(ECDSA.recover(message, chequeData.sig) == owner);
+        require(
+            ECDSA.recover(message, chequeData.sig) ==
+                chequeData.chequeInfo.payer,
+            "The cheque invalid"
+        );
+
+        redeemeds[chequeData.chequeInfo.payer][
+            chequeData.chequeInfo.chequeId
+        ] = true;
+        balances[chequeData.chequeInfo.payer] -= chequeData.chequeInfo.amount;
 
         payable(chequeData.chequeInfo.payee).transfer(
             chequeData.chequeInfo.amount
         );
     }
 
-    function revoke(bytes32 chequeId) external _onlyOwner {
-        redeemeds[chequeId] = true;
+    function revoke(bytes32 chequeId) external {
+        redeemeds[msg.sender][chequeId] = true;
     }
 
     function notifySignOver(SignOver memory signOverData) external {}
@@ -94,10 +108,18 @@ contract ChequeBank {
         Cheque memory chequeData,
         SignOver[] memory signOverData
     ) public view returns (bool) {
-        require(chequeData.chequeInfo.payer == owner);
         require(chequeData.chequeInfo.payee == payee);
-        require(!redeemeds[chequeData.chequeInfo.chequeId]);
-        // require(chequeData.chequeInfo.amount <= address(this).balance);
+        require(
+            !redeemeds[chequeData.chequeInfo.payer][
+                chequeData.chequeInfo.chequeId
+            ],
+            "The cheque had redeemed"
+        );
+        require(
+            balances[chequeData.chequeInfo.payer] >=
+                chequeData.chequeInfo.amount,
+            "Not enough balances"
+        );
         bytes32 hash = keccak256(
             abi.encodePacked(
                 chequeData.chequeInfo.chequeId,
@@ -110,6 +132,8 @@ contract ChequeBank {
             )
         );
         bytes32 message = ECDSA.toEthSignedMessageHash(hash);
-        return ECDSA.recover(message, chequeData.sig) == owner;
+        return
+            ECDSA.recover(message, chequeData.sig) ==
+            chequeData.chequeInfo.payer;
     }
 }
