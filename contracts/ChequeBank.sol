@@ -63,6 +63,8 @@ contract ChequeBank {
             "Not enough balances"
         );
 
+        //TODO Valid From/Thru
+
         bytes32 hash = keccak256(
             abi.encodePacked(
                 chequeData.chequeInfo.chequeId,
@@ -93,6 +95,7 @@ contract ChequeBank {
     }
 
     function revoke(bytes32 chequeId) external {
+        require(!redeemeds[msg.sender][chequeId], "The cheque had redeemed");
         redeemeds[msg.sender][chequeId] = true;
     }
 
