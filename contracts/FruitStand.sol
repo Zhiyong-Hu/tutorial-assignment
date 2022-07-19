@@ -31,8 +31,7 @@ contract FruitStand {
     }
 
     function stake(uint256 _amount) external {
-jtklilnvkcuidvbllvvrlhdnnkflhtbuetkguughhgce
-require(
+        require(
             _amount > 0,
             "FruitStand: Stake amount must be greater than zero"
         );
