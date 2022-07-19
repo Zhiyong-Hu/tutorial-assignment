@@ -31,10 +31,16 @@ contract FruitStand {
     }
 
     function stake(uint256 _amount) external {
+jtklilnvkcuidvbllvvrlhdnnkflhtbuetkguughhgce
+require(
+            _amount > 0,
+            "FruitStand: Stake amount must be greater than zero"
+        );
         if (userStakes[msg.sender].startBlock != 0) {
             // Pay out current stake
             payout(msg.sender, userStakes[msg.sender]);
         }
+        water.transferFrom(msg.sender, address(this), _amount);
         UserStake memory newStake = UserStake({
             startBlock: block.number,
             stakeAmount: _amount
@@ -43,8 +49,12 @@ contract FruitStand {
     }
 
     function unstake() external {
-        require(userStakes[msg.sender].startBlock != 0, "User have not staked");
+        require(
+            userStakes[msg.sender].startBlock != 0,
+            "FruitStand: User have not staked"
+        );
         payout(msg.sender, userStakes[msg.sender]);
+        water.transfer(msg.sender, userStakes[msg.sender].stakeAmount);
         userStakes[msg.sender] = UserStake({startBlock: 0, stakeAmount: 0});
     }
 
