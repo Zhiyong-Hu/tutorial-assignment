@@ -55,7 +55,7 @@ describe("ChequeBank contract", function () {
   });
 
   describe("isChequeValid", function () {
-    it(async function () {
+    it("", async function () {
       let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [ethers.utils.formatBytes32String(chequeId), payer, payee, amount, contractAddress, validFrom, validThru]);
       let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
       let sig = await owner.signMessage(ethers.utils.arrayify(hash));
@@ -82,7 +82,7 @@ describe("ChequeBank contract", function () {
   });
 
   describe("redeem", function () {
-    it(async function () {
+    it("", async function () {
 
     });
   });
