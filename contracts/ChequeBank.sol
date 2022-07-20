@@ -4,9 +4,10 @@ import "hardhat/console.sol";
 
 contract ChequeBank {
     enum Status {
-        unuse,
-        overing,
-        used
+        unredeem,
+        signOver,
+        redeemed,
+        revokeed
     }
 
     mapping(address => uint256) balances;
@@ -84,7 +85,7 @@ contract ChequeBank {
             "The cheque invalid"
         );
 
-        cheques[chequeData.chequeInfo.chequeId].status == Status.used;
+        cheques[chequeData.chequeInfo.chequeId].status = Status.used;
         balances[chequeData.chequeInfo.payer] -= chequeData.chequeInfo.amount;
 
         payable(chequeData.chequeInfo.payee).transfer(
@@ -93,26 +94,38 @@ contract ChequeBank {
     }
 
     function revoke(bytes32 chequeId) external {
+        if()
         require(
             cheques[chequeId].status == Status.unuse,
             "The cheque had redeemed"
         );
-        cheques[chequeId].status == Status.used;
+        cheques[chequeId].status = Status.used;
     }
 
     function notifySignOver(SignOver memory signOverData) external {
         require(
             cheques[signOverData.signOverInfo.chequeId].status != Status.used,
-            "The cheque had redeemed"
+            "The cheque can't sign over"
         );
         require(
             recover(signOverData) == signOverData.signOverInfo.oldPayee,
             "The cheque invalid"
         );
+        require(
+            cheques[signOverData.signOverInfo.chequeId].payee ==
+                signOverData.signOverInfo.oldPayee
+        );
+        require(
+            (cheques[signOverData.signOverInfo.chequeId].counter + 1) ==
+                signOverData.signOverInfo.counter
+        );
         cheques[signOverData.signOverInfo.chequeId].payee = signOverData
             .signOverInfo
             .newPayee;
-        cheques[signOverData.signOverInfo.chequeId].status = Status.overing;
+        cheques[signOverData.signOverInfo.chequeId].status = Status.over;
+        cheques[signOverData.signOverInfo.chequeId].counter = signOverData
+            .signOverInfo
+            .counter;
     }
 
     function redeemSignOver(
@@ -120,16 +133,40 @@ contract ChequeBank {
         SignOver[] memory signOverData
     ) external {
         require(
+            cheques[chequeData.chequeInfo.chequeId].status == Status.over,
+            "The cheque can't redeem"
+        );
+        require(
+            balances[chequeData.chequeInfo.payer] >=
+                chequeData.chequeInfo.amount,
+            "Not enough balances"
+        );
+        require(
+            block.number >= chequeData.chequeInfo.validFrom &&
+                block.number <= chequeData.chequeInfo.validThru,
+            "The cheque can't redeem"
+        );
+
+        require(
             recover(chequeData, address(this)) == chequeData.chequeInfo.payer,
             "The cheque invalid"
         );
+        address oldPayee = chequeData.chequeInfo.payee;
         for (uint256 i = 0; i < signOverData.length; i++) {
+            require(signOverData[i].signOverInfo.counter == (i + 1));
+            require(
+                oldPayee == signOverData[i].signOverInfo.oldPayee,
+                "The cheque invalid"
+            );
             require(
                 recover(signOverData[i]) ==
                     signOverData[i].signOverInfo.oldPayee,
                 "The cheque invalid"
             );
+            oldPayee = signOverData[i].signOverInfo.newPayee;
+            if(){}
         }
+        //TODO
     }
 
     function isChequeValid(
@@ -150,13 +187,20 @@ contract ChequeBank {
         if (recover(chequeData, address(this)) != chequeData.chequeInfo.payer) {
             return false;
         }
+        address oldPayee = chequeData.chequeInfo.payee;
         for (uint256 i = 0; i < signOverData.length; i++) {
+            require(signOverData[i].signOverInfo.counter == (i + 1));
+            require(
+                oldPayee == signOverData[i].signOverInfo.oldPayee,
+                "The cheque invalid"
+            );
             if (
                 recover(signOverData[i]) !=
                 signOverData[i].signOverInfo.oldPayee
             ) {
                 return false;
             }
+            oldPayee = signOverData[i].signOverInfo.newPayee;
         }
         return true;
     }
