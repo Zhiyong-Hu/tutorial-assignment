@@ -3,8 +3,20 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "hardhat/console.sol";
 
 contract ChequeBank {
+    enum Status {
+        unuse,
+        overing,
+        used
+    }
+
     mapping(address => uint256) balances;
-    mapping(address => mapping(bytes32 => bool)) redeemeds;
+    mapping(bytes32 => Info) cheques;
+
+    struct Info {
+        uint8 counter;
+        Status status;
+        address payee;
+    }
 
     struct ChequeInfo {
         uint256 amount;
@@ -35,6 +47,7 @@ contract ChequeBank {
     }
 
     function deposit() external payable {
+        require(msg.value >= 0);
         balances[msg.sender] += msg.value;
     }
 
@@ -52,41 +65,26 @@ contract ChequeBank {
 
     function redeem(Cheque memory chequeData) external {
         require(
-            !redeemeds[chequeData.chequeInfo.payer][
-                chequeData.chequeInfo.chequeId
-            ],
-            "The cheque had redeemed"
+            cheques[chequeData.chequeInfo.chequeId].status == Status.unuse,
+            "The cheque can't redeem"
         );
         require(
             balances[chequeData.chequeInfo.payer] >=
                 chequeData.chequeInfo.amount,
             "Not enough balances"
         );
-
-        //TODO Valid From/Thru
-
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                chequeData.chequeInfo.chequeId,
-                chequeData.chequeInfo.payer,
-                chequeData.chequeInfo.payee,
-                chequeData.chequeInfo.amount,
-                this,
-                chequeData.chequeInfo.validFrom,
-                chequeData.chequeInfo.validThru
-            )
+        require(
+            block.number >= chequeData.chequeInfo.validFrom &&
+                block.number <= chequeData.chequeInfo.validThru,
+            "The cheque can't redeem"
         );
-        bytes32 message = ECDSA.toEthSignedMessageHash(hash);
 
         require(
-            ECDSA.recover(message, chequeData.sig) ==
-                chequeData.chequeInfo.payer,
+            recover(chequeData, address(this)) == chequeData.chequeInfo.payer,
             "The cheque invalid"
         );
 
-        redeemeds[chequeData.chequeInfo.payer][
-            chequeData.chequeInfo.chequeId
-        ] = true;
+        cheques[chequeData.chequeInfo.chequeId].status == Status.used;
         balances[chequeData.chequeInfo.payer] -= chequeData.chequeInfo.amount;
 
         payable(chequeData.chequeInfo.payee).transfer(
@@ -95,16 +93,44 @@ contract ChequeBank {
     }
 
     function revoke(bytes32 chequeId) external {
-        require(!redeemeds[msg.sender][chequeId], "The cheque had redeemed");
-        redeemeds[msg.sender][chequeId] = true;
+        require(
+            cheques[chequeId].status == Status.unuse,
+            "The cheque had redeemed"
+        );
+        cheques[chequeId].status == Status.used;
     }
 
-    function notifySignOver(SignOver memory signOverData) external {}
+    function notifySignOver(SignOver memory signOverData) external {
+        require(
+            cheques[signOverData.signOverInfo.chequeId].status != Status.used,
+            "The cheque had redeemed"
+        );
+        require(
+            recover(signOverData) == signOverData.signOverInfo.oldPayee,
+            "The cheque invalid"
+        );
+        cheques[signOverData.signOverInfo.chequeId].payee = signOverData
+            .signOverInfo
+            .newPayee;
+        cheques[signOverData.signOverInfo.chequeId].status = Status.overing;
+    }
 
     function redeemSignOver(
         Cheque memory chequeData,
         SignOver[] memory signOverData
-    ) external {}
+    ) external {
+        require(
+            recover(chequeData, address(this)) == chequeData.chequeInfo.payer,
+            "The cheque invalid"
+        );
+        for (uint256 i = 0; i < signOverData.length; i++) {
+            require(
+                recover(signOverData[i]) ==
+                    signOverData[i].signOverInfo.oldPayee,
+                "The cheque invalid"
+            );
+        }
+    }
 
     function isChequeValid(
         address payee,
@@ -113,9 +139,7 @@ contract ChequeBank {
     ) public view returns (bool) {
         require(chequeData.chequeInfo.payee == payee);
         require(
-            !redeemeds[chequeData.chequeInfo.payer][
-                chequeData.chequeInfo.chequeId
-            ],
+            cheques[chequeData.chequeInfo.chequeId].status != Status.used,
             "The cheque had redeemed"
         );
         require(
@@ -123,20 +147,55 @@ contract ChequeBank {
                 chequeData.chequeInfo.amount,
             "Not enough balances"
         );
+        if (recover(chequeData, address(this)) != chequeData.chequeInfo.payer) {
+            return false;
+        }
+        for (uint256 i = 0; i < signOverData.length; i++) {
+            if (
+                recover(signOverData[i]) !=
+                signOverData[i].signOverInfo.oldPayee
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function recover(Cheque memory chequeData, address addr)
+        internal
+        pure
+        returns (address)
+    {
         bytes32 hash = keccak256(
             abi.encodePacked(
                 chequeData.chequeInfo.chequeId,
                 chequeData.chequeInfo.payer,
                 chequeData.chequeInfo.payee,
                 chequeData.chequeInfo.amount,
-                this,
+                addr,
                 chequeData.chequeInfo.validFrom,
                 chequeData.chequeInfo.validThru
             )
         );
         bytes32 message = ECDSA.toEthSignedMessageHash(hash);
-        return
-            ECDSA.recover(message, chequeData.sig) ==
-            chequeData.chequeInfo.payer;
+        return ECDSA.recover(message, chequeData.sig);
+    }
+
+    function recover(SignOver memory signOverData)
+        internal
+        pure
+        returns (address)
+    {
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes4(0xFFFFDEAD),
+                signOverData.signOverInfo.counter,
+                signOverData.signOverInfo.chequeId,
+                signOverData.signOverInfo.oldPayee,
+                signOverData.signOverInfo.newPayee
+            )
+        );
+        bytes32 message = ECDSA.toEthSignedMessageHash(hash);
+        return ECDSA.recover(message, signOverData.sig);
     }
 }
