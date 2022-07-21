@@ -281,6 +281,10 @@ contract ChequeBank {
                 );
             }
         }
+
+        cheques[chequeData.chequeInfo.chequeId].status = Status.redeemed;
+        balances[chequeData.chequeInfo.payer] -= chequeData.chequeInfo.amount;
+
         Address.sendValue(
             payable(cheques[chequeData.chequeInfo.chequeId].newPayee),
             chequeData.chequeInfo.amount

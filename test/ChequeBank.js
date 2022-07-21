@@ -44,44 +44,6 @@ describe("ChequeBank contract", function () {
     });
   });
 
-  describe("isChequeValid", function () {
-    it("", async function () {
-      let chequeInfo = {
-        amount: amount,
-        chequeId: chequeId,
-        validFrom: 0,
-        validThru: 0,
-        payee: addr1.address,
-        payer: owner.address
-      };
-      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
-      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
-      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
-      let cheque = {
-        chequeInfo: chequeInfo,
-        sig: sig
-      };
-
-      let signOverInfo = {
-        counter: 1,
-        chequeId: chequeId,
-        oldPayee: addr1.address,
-        newPayee: addr2.address
-      };
-      let over_message = ethers.utils.solidityPack(["bytes4", "uint8", "bytes32", "address", "address"], [0xFFFFDEAD, signOverInfo.counter, signOverInfo.chequeId, signOverInfo.oldPayee, signOverInfo.newPayee]);
-      let over_hash = ethers.utils.solidityKeccak256(["bytes"], [over_message]);
-      let over_sig = await addr1.signMessage(ethers.utils.arrayify(over_hash));
-      let signOver = [
-        {
-          signOverInfo: signOverInfo,
-          sig: over_sig
-        }
-      ];
-      let payee = signOverInfo.newPayee;
-      expect(await contract.isChequeValid(payee, cheque, signOver)).to.equal(true);
-    });
-  });
-
   describe("redeem", function () {
     it("case 1", async function () {
       let blockNumber = await contract.getBlockNumber();
@@ -171,9 +133,106 @@ describe("ChequeBank contract", function () {
         chequeInfo: chequeInfo,
         sig: sig
       };
-      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque can't revoke");
-      await contract.revoke(cheque);
-      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque have redeemed or revokeed");
+
+      let signOverInfo = {
+        counter: 1,
+        chequeId: chequeId,
+        oldPayee: addr1.address,
+        newPayee: addr2.address
+      };
+      let over_message = ethers.utils.solidityPack(["bytes4", "uint8", "bytes32", "address", "address"], [0xFFFFDEAD, signOverInfo.counter, signOverInfo.chequeId, signOverInfo.oldPayee, signOverInfo.newPayee]);
+      let over_hash = ethers.utils.solidityKeccak256(["bytes"], [over_message]);
+      let over_sig = await addr1.signMessage(ethers.utils.arrayify(over_hash));
+      let signOver = {
+        signOverInfo: signOverInfo,
+        sig: over_sig
+      };
+
+
+      await contract.connect(addr2).notifySignOver(cheque, signOver);
+    });
+  }
+  );
+
+  describe("redeemSignOver", function () {
+    it("case 1", async function () {
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: 0,
+        validThru: 0,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
+
+      let signOverInfo = {
+        counter: 1,
+        chequeId: chequeId,
+        oldPayee: addr1.address,
+        newPayee: addr2.address
+      };
+      let over_message = ethers.utils.solidityPack(["bytes4", "uint8", "bytes32", "address", "address"], [0xFFFFDEAD, signOverInfo.counter, signOverInfo.chequeId, signOverInfo.oldPayee, signOverInfo.newPayee]);
+      let over_hash = ethers.utils.solidityKeccak256(["bytes"], [over_message]);
+      let over_sig = await addr1.signMessage(ethers.utils.arrayify(over_hash));
+      let signOver = {
+        signOverInfo: signOverInfo,
+        sig: over_sig
+      };
+      let signOvers = [
+        signOver
+      ];
+
+      await contract.deposit({ value: amount });
+      await contract.connect(addr2).notifySignOver(cheque, signOver);
+      await expect(await contract.redeemSignOver(cheque, signOvers))
+        .to.changeEtherBalances([addr2, contract], [amount, ethers.utils.parseEther("-1")]);
+      expect(await contract.balanceOf()).to.equal(0);
+      await expect(contract.redeemSignOver(cheque, signOvers)).to.be.revertedWith("The cheque can't redeem");
+    });
+  });
+
+  describe("isChequeValid", function () {
+    it("case 1", async function () {
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: 0,
+        validThru: 0,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
+
+      let signOverInfo = {
+        counter: 1,
+        chequeId: chequeId,
+        oldPayee: addr1.address,
+        newPayee: addr2.address
+      };
+      let over_message = ethers.utils.solidityPack(["bytes4", "uint8", "bytes32", "address", "address"], [0xFFFFDEAD, signOverInfo.counter, signOverInfo.chequeId, signOverInfo.oldPayee, signOverInfo.newPayee]);
+      let over_hash = ethers.utils.solidityKeccak256(["bytes"], [over_message]);
+      let over_sig = await addr1.signMessage(ethers.utils.arrayify(over_hash));
+      let signOver = [
+        {
+          signOverInfo: signOverInfo,
+          sig: over_sig
+        }
+      ];
+      let payee = signOverInfo.newPayee;
+      expect(await contract.isChequeValid(payee, cheque, signOver)).to.equal(true);
     });
   });
 })
