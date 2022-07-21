@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "hardhat/console.sol";
 
 contract WATER is ERC20 {
     constructor(uint256 initialSupply) ERC20("WaterToken", "WATER") {
@@ -24,10 +25,21 @@ contract FruitStand {
     ERC20 water;
     ERC20 melon;
     mapping(address => UserStake) userStakes;
+    uint256[301] fib;
 
     constructor(address _water, address _melon) {
         water = ERC20(_water);
         melon = ERC20(_melon);
+        for (uint16 i = 0; i < 301; i++) {
+            if (i == 0) {
+                fib[i] = 0;
+            } else if (i == 1) {
+                fib[i] = 1;
+            } else if (i > 1) {
+                fib[i] = fib[i - 2] + fib[i - 1];
+            }
+            console.log("%s-%s", i, fib[i]);
+        }
     }
 
     function stake(uint256 _amount) external {
@@ -65,19 +77,9 @@ contract FruitStand {
         if (blockDelta > 300) {
             blockDelta = 300;
         }
-        uint256 multiplier = fib(blockDelta);
+        uint256 multiplier = fib[blockDelta];
         uint256 rewardAmount = multiplier * stake.stakeAmount;
         melon.transfer(user, rewardAmount);
         return 0;
-    }
-
-    function fib(uint256 n) public view returns (uint256 fn) {
-        if (n == 0) {
-            return 0;
-        } else if (n == 1) {
-            return 1;
-        } else if (n > 1) {
-            return fib(n - 2) + fib(n - 1);
-        }
     }
 }
