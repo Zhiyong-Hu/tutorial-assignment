@@ -6,10 +6,6 @@ describe("ChequeBank contract", function () {
 
   //bytes32
   let chequeId = ethers.utils.formatBytes32String("1");
-  //address
-  let payer;
-  //address
-  let payee;
   //uint256
   let amount = ethers.utils.parseEther("1");
   //address
@@ -24,8 +20,6 @@ describe("ChequeBank contract", function () {
     [owner, addr1, addr2] = await ethers.getSigners();
     contract = await ChequeBank.deploy();
     contractAddress = contract.address;
-    payer = owner.address;
-    payee = addr1.address;
   });
 
   describe("basic function", function () {
@@ -57,8 +51,8 @@ describe("ChequeBank contract", function () {
         chequeId: chequeId,
         validFrom: 0,
         validThru: 0,
-        payee: payee,
-        payer: payer
+        payee: addr1.address,
+        payer: owner.address
       };
       let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
       let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
@@ -71,7 +65,7 @@ describe("ChequeBank contract", function () {
       let signOverInfo = {
         counter: 1,
         chequeId: chequeId,
-        oldPayee: payee,
+        oldPayee: addr1.address,
         newPayee: addr2.address
       };
       let over_message = ethers.utils.solidityPack(["bytes4", "uint8", "bytes32", "address", "address"], [0xFFFFDEAD, signOverInfo.counter, signOverInfo.chequeId, signOverInfo.oldPayee, signOverInfo.newPayee]);
@@ -83,24 +77,103 @@ describe("ChequeBank contract", function () {
           sig: over_sig
         }
       ];
-
-      await expect(contract.isChequeValid(payee, cheque, signOver)).to.be.revertedWith("Not enough balances");
-      await contract.deposit({ value: amount })
+      let payee = signOverInfo.newPayee;
       expect(await contract.isChequeValid(payee, cheque, signOver)).to.equal(true);
-      await contract.revoke(chequeId)
-      // await expect(contract.isChequeValid(payee, cheque, signOver)).to.be.revertedWith("The cheque had redeemed");
     });
   });
 
   describe("redeem", function () {
-    it("", async function () {
+    it("case 1", async function () {
+      let blockNumber = await contract.getBlockNumber();
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: (blockNumber.toNumber() + 4),
+        validThru: blockNumber.toNumber() + 3,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
 
+      await expect(contract.redeem(cheque)).to.be.revertedWith("Not enough balances");
+      await contract.deposit({ value: amount });
+      await expect(contract.redeem(cheque)).to.be.revertedWith("The cheque invalid");
+      await expect(contract.redeem(cheque)).to.be.revertedWith("The cheque expired");
+    });
+    it("case 2", async function () {
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: 0,
+        validThru: 0,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
+
+      await contract.deposit({ value: amount });
+      await expect(await contract.redeem(cheque))
+        .to.changeEtherBalances([addr1, contract], [amount, ethers.utils.parseEther("-1")]);
+      expect(await contract.balanceOf()).to.equal(0);
+      await expect(contract.redeem(cheque)).to.be.revertedWith("The cheque can't redeem");
     });
   });
 
-  describe("redeem", function () {
-    it("", async function () {
+  describe("revoke", function () {
+    it("case 1", async function () {
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: 0,
+        validThru: 0,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
+      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque can't revoke");
+      await contract.revoke(cheque);
+      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque have redeemed or revokeed");
+    });
+  });
 
+  describe("notifySignOver", function () {
+    it("case 1", async function () {
+      let chequeInfo = {
+        amount: amount,
+        chequeId: chequeId,
+        validFrom: 0,
+        validThru: 0,
+        payee: addr1.address,
+        payer: owner.address
+      };
+      let message = ethers.utils.solidityPack(["bytes32", "address", "address", "uint256", "address", "uint32", "uint32"], [chequeInfo.chequeId, chequeInfo.payer, chequeInfo.payee, chequeInfo.amount, contractAddress, chequeInfo.validFrom, chequeInfo.validThru]);
+      let hash = ethers.utils.solidityKeccak256(["bytes"], [message]);
+      let sig = await owner.signMessage(ethers.utils.arrayify(hash));
+      let cheque = {
+        chequeInfo: chequeInfo,
+        sig: sig
+      };
+      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque can't revoke");
+      await contract.revoke(cheque);
+      await expect(contract.connect(addr1).revoke(cheque)).to.be.revertedWith("The cheque have redeemed or revokeed");
     });
   });
 })
